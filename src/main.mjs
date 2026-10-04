@@ -5,7 +5,7 @@ import http from 'node:http';
 import {randomBytes} from 'node:crypto';
 import QRCode from 'qrcode';
 import {Store} from './store.mjs';
-import {CodexRpc} from './rpc.mjs';
+import {CodexRpcPool} from './rpc-pool.mjs';
 import {Feishu,registerNewApp} from './feishu.mjs';
 import {loadSecrets,saveSecrets} from './vault.mjs';
 import {Bridge} from './bridge.mjs';
@@ -32,7 +32,7 @@ function log(message) {
   // No raw request, message, or credential content is written to disk.
 }
 const store=new Store(path.join(runtime,'state.json'));
-const rpc=new CodexRpc({cwd:root});const feishu=new Feishu();
+const rpc=new CodexRpcPool({cwd:root});const feishu=new Feishu();
 const bridge=new Bridge({store,rpc,feishu,root,config,log});bridge.persistConfig=persistConfig;bridge.recover();
 const desktopSync=new DesktopSync(bridge);
 const questionMonitor=new QuestionMonitor(desktopSync);
@@ -76,7 +76,7 @@ function publicState() {
     progressEnabled:false,paused:!!config.paused,preferences:config.preferences,pairCode:store.data.ownerId?null:bridge.pairCode,
     conversationReady:!!store.data.ownerChat,
     desktopSync:{enabled:config.desktopSyncEnabled,lastEvent:store.data.desktopSyncLastEvent??null},
-    tasks:[...store.data.tasks.filter(t=>!t.archived),...store.data.desktopTasks.filter(t=>!t.archived)].map(t=>({id:t.id,title:t.title,status:t.status,activity:t.activity,plan:t.plan,startedAt:t.startedAt,report:t.report})),
+    tasks:[...store.data.tasks.filter(t=>!t.archived),...store.data.desktopTasks.filter(t=>!t.archived)].map(t=>({id:t.id,title:t.title,status:t.status,activity:t.activity,plan:t.plan,startedAt:t.startedAt,report:t.report,controlled:t.source!=='desktop'||!!t.bridgeActive})),
     outbox:store.data.outbox.length,logs};
 }
 async function readBody(req) {

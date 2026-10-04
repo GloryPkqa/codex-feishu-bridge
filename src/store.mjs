@@ -23,8 +23,9 @@ export class Store {
     this.save();
     return false;
   }
-  taskByThread(id) { return this.data.tasks.find(t=>t.threadId === id); }
-  taskById(id) { return this.data.tasks.find(t=>t.id === id); }
+  controlledTasks() {return [...this.data.tasks,...(this.data.desktopTasks??[]).filter(t=>t.bridgeActive)];}
+  taskByThread(id) { return this.controlledTasks().find(t=>t.threadId === id); }
+  taskById(id) { return [...this.data.tasks,...(this.data.desktopTasks??[])].find(t=>t.id === id); }
   queue(chatId, payload) {
     if (!chatId) return;
     const item={id:randomUUID(),chatId,payload,attempts:0,nextAt:0,createdAt:Date.now()};

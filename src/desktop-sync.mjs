@@ -21,7 +21,7 @@ export class DesktopSync {
     const t=this.store.data.desktopTasks.find(t=>t.threadId===e.sessionId);
     if(t?.archived)return;
     const content=e.questions.map(q=>q.secret?'敏感问题：请在电脑端查看和填写。':`${q.text}\n${q.options.map((o,i)=>`${i+1}. ${o.label}${o.description?'：'+o.description:''}`).join('\n')}`).join('\n\n');
-    this.bridge.show(this.store.data.ownerChat,'电脑上的 Codex 有个问题',`${t?t.id+' · '+t.title:'电脑上的 Codex 对话'}\n\n${content}\n\n这来自桌面原对话。目前这里同步问题内容，仍需在原对话回答；飞书新建的 T 编号任务可直接点选回答。`,[],'orange','questions');
+    this.bridge.show(this.store.data.ownerChat,'电脑上的 Codex 有个问题',`${t?t.id+' · '+t.title:'电脑上的 Codex 对话'}\n\n${content}\n\n这来自电脑启动的原轮次，仍需在电脑回答。本轮结束后，可在飞书选择 D 编号继续同一对话；飞书接续的轮次可直接回答其问题卡片。`,[],'orange','questions');
     this.store.data.hookSeen.push(seen);this.store.save();
   }
   async consume(){
@@ -70,7 +70,7 @@ export class DesktopSync {
         const name=`${t.id}-${e.turnId.replace(/[^a-zA-Z0-9_-]/g,'')}.md`,file=path.join(dir,name);
         fs.writeFileSync(file,`# ${t.id} · ${t.title}\n\n来源：电脑上的 Codex 对话\n会话：${t.threadId}\n轮次：${e.turnId}\n状态：${r.status}\n\n${reply}\n`,'utf8');
         if(active){t.report=file;t.lastResult=reply;}
-        this.bridge.show(t.chatId,e.event==='Interrupt'?'桌面任务已停止':'桌面对话本轮回复',`${t.id} · ${t.title}\n\n${reply.slice(0,14000)}\n\n完整回复保存在本机报告。Stop 事件表示本轮回复已输出，其他 Hooks 仍可能让 Codex 继续工作。`,[],e.event==='Interrupt'?'orange':'green',e.event==='Interrupt'?'errors':'results');
+        this.bridge.show(t.chatId,e.event==='Interrupt'?'桌面任务已停止':'桌面对话本轮回复',`${t.id} · ${t.title}\n\n${reply.slice(0,14000)}\n\n点击“回复这段聊天”后直接发消息，或发送“继续 ${t.id} 你的要求”。完整回复保存在本机报告。Stop 表示本轮回复已输出；若电脑仍在工作，接续会被拒绝。`,[{label:'回复这段聊天',value:{ui:'select',taskId:t.id,epoch:this.bridge.epoch}}],e.event==='Interrupt'?'orange':'green',e.event==='Interrupt'?'errors':'results');
         this.bridge.queue(t.chatId,{kind:'file',path:file,name},'files');
       }
     }
