@@ -53,7 +53,7 @@ try{
   const dependency=path.join(project,'node_modules','@larksuiteoapi','node-sdk');fs.mkdirSync(dependency,{recursive:true});fs.writeFileSync(path.join(dependency,'package.json'),'{}');
   const dryRun=spawnSync('powershell.exe',['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',path.join(installRoot,'install.ps1'),'-CheckOnly','-Startup','-Hooks'],{encoding:'utf8',windowsHide:true,timeout:10000});
   assert.ifError(dryRun.error);assert.equal(dryRun.status,0,dryRun.stderr);
-  const plan=JSON.parse(dryRun.stdout);assert.equal(plan.Project,project);assert.equal(plan.Startup,true);assert.equal(plan.Hooks,true);
+  const plan=JSON.parse(dryRun.stdout);assert.equal(fs.realpathSync.native(plan.Project),fs.realpathSync.native(project));assert.equal(plan.Startup,true);assert.equal(plan.Hooks,true);
   assert.match(plan.ShortcutArguments,/".*project with spaces.*launch\.ps1" -OpenWeb$/);
   assert.equal(fs.existsSync(path.join(project,'runtime')),true); // Only synthetic hook backup exists.
   assert.equal(fs.existsSync(path.join(project,'runtime','stop-service.flag')),false);
