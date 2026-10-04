@@ -1,0 +1,169 @@
+# Codex 飞书助手
+
+在 Windows 电脑运行 Codex，在手机飞书发任务、回答问题和接收报告。提供本机网页管理和 Windows 托盘控制。
+
+这是独立编写的非官方桥接程序。Codex 接入使用 OpenAI App Server；飞书接入使用官方 Node SDK。没有内置账号、Cookie 或密钥，也不依赖浏览器登录信息。开源许可证为 MIT，依赖遵循各自的许可证。
+
+## 支持范围
+
+| 功能 | 飞书建立的 T 任务 | 电脑原来的 D 对话 |
+| --- | --- | --- |
+| 任务状态和结果通知 | 支持 | 开启桌面同步并信任 Hooks 后支持 |
+| 手机继续对话 | 支持 | 在桌面原对话继续 |
+| 手机按钮或表单回答 | 支持 | 同步明确提问内容，在桌面回答 |
+| 手机批准具体操作 | 支持 App Server 提供的审批类型 | 在桌面批准 |
+| 选择模型与思考强度 | 从本机账号可用列表选择，下一轮生效 | 使用桌面自身设置 |
+
+进度按需查询，不每十分钟自动发报告。任务开始、阶段完成、明确提问、执行失败及本轮结果仍会发送通知。任务状态来自已收到的事件，没有伪造百分比。
+
+当前版本支持 **Windows 10/11、Node.js 24、pnpm 11**。密钥保管和托盘使用 Windows 功能，尚不支持 macOS/Linux 完整运行。Codex App Server 的部分交互及本地提问记录属于可能变化的接口，升级 Codex 后建议先做连接测试。
+
+## 安装
+
+1. 安装并登录 [Codex](https://developers.openai.com/codex/app/)。也可以使用能直接启动 `app-server` 的 Codex 原生可执行文件。
+2. 安装 [Node.js 24](https://nodejs.org/en/download) 和 [pnpm 11](https://pnpm.io/installation)。安装后重新打开终端，确认 `node --version`、`pnpm --version` 能运行。
+3. 克隆或下载这个仓库，在项目目录运行：
+
+```powershell
+git clone https://github.com/GloryPkqa/codex-feishu-bridge.git
+cd codex-feishu-bridge
+pnpm install --frozen-lockfile --ignore-scripts
+powershell -NoProfile -ExecutionPolicy Bypass -File .\windows\install.ps1
+```
+
+安装器默认只创建桌面「Codex 飞书助手」快捷方式，不修改 Codex Hooks。双击快捷方式，等待服务启动后打开本机管理页：<http://127.0.0.1:17861/>。也可双击项目中的 `启动机器人.cmd`。
+
+如果不需要托盘，可在终端运行 `pnpm start`；关闭这个终端会结束服务。电脑需保持开机、联网、不休眠。每台电脑只运行一套本项目，管理端口固定为 `17861`。
+
+程序会尝试找到 Codex 桌面程序附带的原生可执行文件。找不到时，可为启动程序设置 `FEISHU_CODEX_BIN`，指向真实的 `codex.exe`，例如：
+
+```powershell
+$env:FEISHU_CODEX_BIN = 'D:\Apps\Codex\codex.exe'
+pnpm doctor
+pnpm start
+```
+
+该变量只对当前终端及它启动的程序生效。若通过桌面快捷方式运行，请用 Windows 环境变量设置界面保存后重新启动助手。不要把个人路径写进仓库。npm 的 `codex.cmd` 包装脚本不能作为原生可执行文件路径。
+
+## 接入飞书
+
+### 扫码新建应用
+
+在管理页展开「账号连接与高级设置」，点击「扫码创建飞书应用」。使用自己的飞书扫码，检查权限后授权。这个流程由官方飞书 SDK 提供；组织权限或管理员策略可能限制创建应用。
+
+完成后，在飞书打开「Codex 远程助手」私聊，发送「帮助」。若网页显示绑定码，则先发送网页中的 `绑定 XXXXXXXX`。只有绑定账号能创建任务或回答审批。
+
+### 手动连接已有自建应用
+
+在 [飞书开放平台](https://open.feishu.cn/app) 创建企业自建应用，完成以下配置：
+
+1. 启用「机器人」能力。
+2. 开通权限 `im:message:send_as_bot`、`im:message.p2p_msg:readonly`、`im:resource`。扫码模板还申请 `im:message.group_at_msg:readonly`，当前程序仅处理私聊。
+3. 在本机管理页「手动连接已有应用」填写 App ID 和 App Secret。密钥只提交给本机并用 DPAPI 加密保存。
+4. 在「事件与回调」选择「使用长连接接收事件/回调」。服务连接成功后订阅消息事件 `im.message.receive_v1` 和卡片交互回调 `card.action.trigger`，保存配置。
+5. 按平台提示发布版本、设置应用可用范围，让使用者能找到机器人。回到私聊，用网页绑定码绑定后发送「帮助」。
+
+无需公网服务器、域名或回调 URL。手动创建应用时，网页配置与飞书平台配置都必须完成。App Secret 不要贴进飞书聊天、Issue 或代码。已绑定的安装不能直接换成另一个 App：请用新的安装目录重新接入，避免旧任务和账号标识混用；更新同一个 App 的 Secret 可以在原安装中操作。
+
+## 日常使用
+
+发送「帮助」或「面板」，通过按钮打开新建任务、任务选择、模型和强度表单。模型列表来自你自己的 Codex 账号。手机上模型名省去重复的 GPT 前缀，长选项会独占一行。
+
+也可直接发送文字：
+
+```text
+新建 整理这个选题的资料，输出一份报告
+状态
+有几个项目正在运行
+任务
+进度 T001
+切换 T001
+继续 T001 请补充第二部分
+停止 T001
+模型
+强度
+```
+
+普通消息接着当前 T 任务聊天，执行中发消息可补充要求。新任务在 `tasks/Txxx/project` 独立目录运行。完成一轮后会发送摘要及 Markdown 报告附件；报告也保存在本机。长卡片会截短，附件保留完整回复。
+
+提问和审批使用最新卡片：回答只作用于对应任务和当前请求，旧卡片、其他账号及服务重启前的审批会失效。支持的审批类型由当前 Codex App Server 决定；不认识的类型会明确拒绝，不会自动批准。服务重启后历史保留，运行中的 T 任务会标为连接中断，发送「继续 T001」恢复。
+
+网页可暂停/恢复飞书收发、查看任务、发送控制面板。右下角托盘图标右键可打开管理页、启用或暂停收发、退出托盘，或关闭机器人。退出托盘会保留后台；关闭机器人会停止后台及它拥有的 T 任务执行。
+
+网页「通知与功能」可以分别勾选任务开始、阶段完成、提问、审批、结果摘要、报告附件、失败和停止通知，保存后生效并保留到下次启动。可点「只留重要通知」减少发送量，或「关闭自动通知」后手动查询。通知关闭不影响本地状态和报告保存；主动查询、帮助、操作回执始终返回。关掉问题或审批通知仍可能有任务等待，发送「问题」查看当前请求。
+
+功能开关可禁止飞书新建任务、继续对话/补充要求或手机审批。关闭手机审批会拒绝新的权限请求，旧卡片也不能借此批准；它不会授予完全访问权限。停止和查询仍然可用。通知开关决定是否发提醒，功能开关决定能否执行操作。
+
+## 开机启动与桌面对话同步
+
+开机启动：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\windows\install.ps1 -Startup
+```
+
+它为当前 Windows 用户注册 `Codex-Feishu-Bridge` 计划任务，在该用户登录后运行，不会唤醒关机或休眠的电脑。
+
+若要同步电脑其他 Codex 对话，先安装六项全局 Hooks：
+
+```powershell
+node windows/install-hooks.mjs --print-command
+node windows/install-hooks.mjs
+```
+
+第一条可查看实际命令。为兼容 Windows 的空格与特殊路径，命令使用 PowerShell 编码参数；可审查输出里的 `script` 和 `src/hook-relay.mjs`。安装只添加本项目处理器，保留其他 Hooks，并把修改前配置备份到本机 `runtime/hook-backups/`。
+
+然后在 Codex 的 Hooks 设置中逐项审查并信任标注「同步到飞书」的六项，回到助手网页主动勾选「同步这台电脑的 Codex 桌面对话到飞书」。程序不会代替你信任。默认关闭同步，新启用时不重放已有提问。Hooks 负责状态及结果；问题监听另外读取当前用户的本地会话新增明确提问记录。普通自然语言提问、其他窗口对话框和所有审批弹窗未必有可同步的事件。
+
+D 对话的提问卡只提醒，仍需到桌面原对话回答；单纯的 `PermissionRequest` 权限检查不会被当成人工待审批通知。需要手机回答和批准时，请用飞书创建 T 任务。
+
+关闭网页同步开关会停止消费桌面事件；已排入发送队列的通知仍可能发送。彻底移除本项目 Hooks：
+
+```powershell
+node windows/install-hooks.mjs --remove
+```
+
+## 其他设备与分享
+
+仓库可供其他人自行安装。**每台设备独立安装、登录 Codex、创建飞书应用并绑定自己账号。** 同一手机可以分别打开各设备的机器人私聊。
+
+不要让多台电脑同时复用一个飞书 App：长连接没有本项目的设备路由，本地 T/D 编号和任务状态也互不共享，可能导致消息由错误实例接收。当前版本不提供跨设备迁移或集中调度。不要复制 `runtime/`、`tasks/` 或 DPAPI 密钥给其他设备或别人。
+
+## 用量
+
+本机网页刷新和本地状态监听不调用飞书接口。发卡片、消息、上传文件、发送附件等会产生平台调用；调用次数不等于可见消息条数。机器人不发十分钟周期报告。
+
+示例：每天完成 20 个任务，每个按 4 次调用估算，再查询 20 次状态，30 天约 3,000 次。提问、阶段完成通知、平台鉴权及重试等会增加用量。程序给消息发送留出间隔并保留失败重试队列，不能保证组织永不超额。
+
+额度按组织套餐和飞书当前规则执行；自建应用共享组织额度，不能通过多建机器人规避。以管理后台实际余量为准：[飞书自建应用调用额度说明](https://open.feishu.cn/document/platform-notices/platform-updates-/custom-app-api-call-limit)。程序目前不能读取组织剩余额度。
+
+## 验证与故障排查
+
+```powershell
+pnpm test
+node windows/check-launchers.mjs
+pnpm doctor
+```
+
+自动测试使用假 RPC 和临时文件，不创建真实 Codex 对话，不联系飞书，不使用账号密钥。`doctor` 会启动本机 Codex 检查登录和模型，随后结束该检查进程，不创建对话。Windows 启动器检查仅使用临时配置，不安装真实 Hooks 或自启动。
+
+- Codex 未连接：确认已安装、可执行文件路径正确，查看管理页记录；必要时设置 `FEISHU_CODEX_BIN`。
+- Codex 未登录：在管理页点「登录 Codex」，或先在本机 Codex 完成登录。
+- 飞书收不到回复：检查长连接、消息事件、机器人能力、权限、已发布版本和应用可用范围；确认使用的是已绑定账号私聊。
+- 按钮没反应：检查 `card.action.trigger` 回调，发送「帮助」获取新卡片；旧卡片重启后无效。
+- D 对话问题没通知：先打开同步开关；明确提问记录需来自当前受支持的工具，普通文本问题不保证自动识别。状态与结果还要求 Hooks 被信任。
+- 收到过多通知：暂停收发或关闭桌面同步。不会恢复十分钟定时报告。
+- 端口被占用：仅运行一套助手，关闭原实例后再启动。
+- 换 Windows 用户后密钥读不出：DPAPI 绑定原用户，请使用原用户，或在新的安装目录重新配置。
+
+升级前在网页/托盘关闭服务，单独备份本机配置及任务（备份不要公开），然后 `git pull`、重新执行依赖安装并启动。若项目路径或 Hooks 命令发生变化，需要重新安装、审查和信任 Hooks。
+
+停用开机启动可运行 `powershell -NoProfile -ExecutionPolicy Bypass -File .\windows\remove-startup.ps1`。移除 Hooks 后关闭服务，再手动删除本项目的桌面快捷方式；删除安装目录前保留需要的本地任务成果。
+
+## 实现与隐私
+
+`src/` 是桥接逻辑，`public/` 是本机管理页，`windows/` 是启动、托盘、密钥保管和 Hooks 安装器，`test/` 是无账号的本地回归测试。`runtime/`、`tasks/`、日志、密钥、截图、快捷方式和本机依赖均不在公开源码中。
+
+查看 [安全与隐私说明](SECURITY.md)。本项目不会自动识别和清除普通输出中的所有秘密；接入的任务内容会离开电脑发送给飞书。提交 Issue 前先脱敏。
+
+参考：[OpenAI Codex App Server](https://learn.chatgpt.com/docs/app-server)、[OpenAI Codex Hooks](https://learn.chatgpt.com/docs/hooks)、[飞书官方 Node SDK](https://github.com/larksuite/node-sdk)、[飞书发送消息接口](https://open.feishu.cn/document/server-docs/im-v1/message/create)。

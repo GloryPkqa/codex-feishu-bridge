@@ -1,0 +1,19 @@
+{
+  "name": "codex-feishu-bridge",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Windows Codex remote assistant for Feishu with mobile forms, approvals and local tray controls",
+  "license": "MIT",
+  "engines": {"node": ">=24.0.0 <25.0.0"},
+  "packageManager": "pnpm@11.19.0",
+  "type": "module",
+  "scripts": {
+    "start": "node src/main.mjs",
+    "test": "node --test test/*.test.mjs",
+    "doctor": "node src/doctor.mjs"
+  },
+  "dependencies": {
+    "@larksuiteoapi/node-sdk": "1.74.0",
+    "qrcode": "1.5.4"
+  }
+}

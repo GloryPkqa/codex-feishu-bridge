@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="csrf-token" content="__CSRF__"><title>Codex 飞书助手</title>
+<style>
+[hidden]{display:none!important}
+*{box-sizing:border-box}body{margin:0;background:#f4f6fa;color:#18253b;font:16px/1.65 system-ui,'Microsoft YaHei',sans-serif}.shell{max-width:1040px;margin:42px auto;padding:0 24px}.eyebrow{color:#3865d8;font-size:14px}h1{font-size:32px;margin:8px 0}h2{font-size:21px;margin:0 0 14px}p{margin:8px 0;color:#5a6880}.grid{display:grid;grid-template-columns:1.2fr 1fr;gap:20px}.panel{background:#fff;border:1px solid #e3e8f1;border-radius:18px;padding:26px;margin-bottom:20px;box-shadow:0 4px 20px #19385905}button,a.button{border:0;border-radius:10px;padding:11px 17px;background:#3865d8;color:white;font:inherit;cursor:pointer;display:inline-block;text-decoration:none;margin:8px 8px 8px 0}button.secondary{background:#edf1f9;color:#314b7d}button:disabled{opacity:.5;cursor:wait}.badge{display:inline-block;background:#edf1f9;color:#54647d;border-radius:20px;padding:3px 12px;margin:5px 6px 5px 0;font-size:14px}.badge.ok{background:#e9f6ee;color:#267349}input{width:100%;padding:11px;margin:7px 0 16px;border:1px solid #d5ddea;border-radius:8px;font:inherit}label{font-size:14px;color:#536178}#qr img{display:block;width:260px;max-width:100%;margin:14px auto}.hint{background:#f5f7fb;border-radius:10px;padding:14px}.code{font-size:23px;color:#243e7f;font-weight:600;letter-spacing:2px}details{margin-top:14px}summary{cursor:pointer;color:#526b9d}.task{padding:12px 0;border-top:1px solid #edf0f5}.task b{display:block}.log{font-size:13px;color:#66748c;padding:7px 0;border-top:1px solid #edf0f5}#notice{position:fixed;right:20px;bottom:20px;background:#1e355a;color:#fff;padding:14px 20px;border-radius:12px;display:none;max-width:480px}.small{font-size:13px}.commands{white-space:pre-line;color:#3a4d6b}#qr:empty{display:none}@media(max-width:740px){.grid{grid-template-columns:1fr}.shell{margin:22px auto;padding:0 14px}.panel{padding:20px}h1{font-size:27px}}
+.choices{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:14px 0}.choices label{display:flex;align-items:center;gap:9px;color:#314b7d}.choices input{width:18px;height:18px;margin:0;accent-color:#3865d8}h3{font-size:17px;margin:22px 0 8px}</style></head><body><main class="shell"><div class="eyebrow">远程任务 · 进度通知 · 持续对话</div><h1>Codex 飞书助手</h1><p style="margin-bottom:25px">把任务留给电脑，在飞书接收进展、回答问题和查看结果。</p>
+<div><span id="codex" class="badge">检查 Codex</span><span id="feishu" class="badge">等待连接飞书</span></div><div class="panel"><h2>运行控制</h2><p id="mode">进度按需查询；问题和任务结果立即通知。</p><button id="pause" class="secondary">暂停飞书收发</button><button id="resume">恢复飞书收发</button><button id="panel" class="secondary">发送飞书面板</button><button id="overview" class="secondary">查询全部进度</button><p class="small">暂停收发时，本机 Codex 任务继续运行；通知会保留到恢复后发送。</p><p class="small">电脑需要保持开机、联网和不休眠。</p></div>
+<div class="panel"><h2>通知与功能</h2><p>勾选需要的内容，保存后立即生效，重启后保留。</p><form id="preferences"><h3>自动发送哪些消息</h3><div class="choices">
+<label><input type="checkbox" data-group="notifications" data-key="started">任务开始</label>
+<label><input type="checkbox" data-group="notifications" data-key="stages">阶段完成</label>
+<label><input type="checkbox" data-group="notifications" data-key="questions">需要回答的问题</label>
+<label><input type="checkbox" data-group="notifications" data-key="approvals">需要批准的操作</label>
+<label><input type="checkbox" data-group="notifications" data-key="results">本轮结果摘要</label>
+<label><input type="checkbox" data-group="notifications" data-key="files">报告附件</label>
+<label><input type="checkbox" data-group="notifications" data-key="errors">失败、中断及停止</label></div>
+<p class="small">主动查询、帮助、操作回执始终返回。关闭问题或审批提醒后，任务仍可能等你回答；发送「问题」查看当前请求。</p>
+<button type="button" id="important" class="secondary">只留重要通知</button><button type="button" id="quiet" class="secondary">关闭自动通知</button><button type="button" id="defaults" class="secondary">恢复默认勾选</button>
+<h3>允许使用哪些功能</h3><div class="choices">
+<label><input type="checkbox" data-group="features" data-key="newTasks">飞书新建任务</label>
+<label><input type="checkbox" data-group="features" data-key="continuation">继续对话与补充要求</label>
+<label><input type="checkbox" data-group="features" data-key="remoteApprovals">手机批准具体操作</label></div>
+<p class="small">关闭手机审批后，新权限请求会被拒绝，任务可能无法继续；已有请求的允许按钮也不会授予权限。停止、查询和回答普通问题仍可用。</p>
+<button type="submit">保存设置</button><span id="preferencesStatus" class="small"></span></form>
+<details><summary>同步电脑其他 Codex 对话（可选）</summary><label><input id="desktopSync" type="checkbox" style="width:auto;margin-right:8px">同步这台电脑的 Codex 桌面对话到飞书</label><p class="small">默认关闭，开关即时保存。开启后会读取当前用户的 Codex 会话新增提问，并把问题发送到已绑定的飞书私聊。安装并信任 Hooks 后，还会同步任务标题、状态及最终回复，可能包含对话中的私人信息。</p><p class="small">上面的通知勾选也适用于桌面对话。D 对话在飞书只作提醒，需在原对话回答或批准；飞书新建的 T 任务支持手机回答。不要在接入的任务中填写 Cookie、密码或密钥。</p></details></div>
+<div class="panel"><h2>任务</h2><div id="tasks"><p>还没有任务。连接后可以在飞书直接发要求。</p></div></div><div class="panel"><h2>用量与状态</h2><p>定时报告已关闭。飞书发送“状态”“全部进度”或“有几个项目正在运行”即可查询。</p><p>一次状态查询通常产生一次消息发送调用。任务结果还可能产生文件上传、附件发送等调用，调用次数不等于聊天消息条数。</p><p class="small">企业内所有自建应用共享当月额度，具体以组织套餐和平台规则为准。此页无法读取组织剩余额度，请在飞书管理后台查看。</p><h2>在飞书这样用</h2><div class="commands">新建 帮我整理这个选题的资料并输出报告
+任务
+进度 T001
+切换 T001
+继续 T001 请补充第二部分
+停止 T001</div><p class="small">普通消息会接着当前任务聊。第一版通过机器人建立独立任务会话。</p></div><details class="panel"><summary>账号连接与高级设置</summary>
+<div class="panel"><h2>1. 连接飞书</h2><p id="connectionText">创建一个只供你使用的飞书机器人。</p><button id="register">扫码创建飞书应用</button><button id="reconnect" class="secondary">重新连接</button><button id="login" class="secondary" hidden>登录 Codex</button><div id="qr"></div><div id="regText"></div>
+<details><summary>手动连接已有应用</summary><p class="small">从飞书开放平台复制应用信息。密钥只提交给本机，并由 Windows 加密保存。</p><form id="manual"><label>App ID<input id="appId" autocomplete="off" placeholder="cli_..."></label><label>App Secret<input id="appSecret" type="password" autocomplete="off" placeholder="只在本机填写"></label><button>保存并连接</button></form></details></div>
+<div class="panel"><h2>2. 在飞书启用对话</h2><p>扫码授权后，在飞书搜索「Codex 远程助手」，打开机器人私聊，发送「帮助」。</p><div id="pair" class="hint" hidden><p>如果尚未绑定，请在机器人私聊里发送：</p><div id="pairCode" class="code"></div></div><p id="owner"></p><button id="test" class="secondary">发送连接测试</button>
+<button id="demo" class="secondary">测试问题与报告</button><details><summary>收不到回复时，检查这里</summary><p class="small">在飞书开放平台打开应用：启用机器人；在「事件与回调」选择「使用长连接接收事件/回调」，订阅「接收消息」与「卡片回传交互」；确认消息接收、消息发送和资源上传权限生效，并按平台提示发布版本。</p><p class="small">长连接建立后再保存平台配置。机器人仅处理绑定账号的私聊。</p><a class="button" href="https://open.feishu.cn/app" target="_blank" rel="noreferrer">打开飞书开放平台</a></details></div>
+</details><div class="panel"><h2>连接记录</h2><div id="logs"></div><p id="outbox" class="small"></p></div></main><div id="notice" role="status"></div><script src="/app.js"></script></body></html>
