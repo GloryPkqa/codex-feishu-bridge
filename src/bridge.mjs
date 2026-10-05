@@ -4,6 +4,7 @@ import {randomUUID,randomInt} from 'node:crypto';
 import {card,progress,modelLabel,formCard,selectField,statusNames} from './cards.mjs';
 import {within} from './store.mjs';
 import {notificationAllowed,featureAllowed} from './preferences.mjs';
+import {desktopError} from './desktop-errors.mjs';
 
 export const ASK_TOOL={type:'function',name:'feishu_ask_user',description:'当任务必须由用户决定时，在飞书发送问题与可选按钮，等待用户作答。不要用于普通进度或索取密码。',inputSchema:{type:'object',additionalProperties:false,properties:{question:{type:'string'},options:{type:'array',items:{type:'string'},maxItems:6}},required:['question','options']}};
 export class Bridge {
@@ -96,7 +97,10 @@ export class Bridge {
   }
   async sendTask(t,text,messageId){
     this.requireFeature('continuation');
-    if(t.source==='desktop'&&!t.bridgeActive&&['starting','running','waiting'].includes(t.status))return this.say(t.chatId,`${t.id} 正在电脑原轮次中执行或等待处理，请先在电脑完成或停止该轮次，再从飞书继续同一对话。这条消息没有发送，也没有另建任务。`);
+    if(t.source==='desktop'&&!t.bridgeActive&&['starting','running','waiting'].includes(t.status)){
+      const error=this.recordDesktopError(t,{kind:'desktop_running'},'resume');
+      return this.say(t.chatId,error.message+'\n本次消息没有发送，也没有另建任务。');
+    }
     const pending=this.store.data.requests.filter(r=>r.taskId===t.id&&r.status==='pending'&&r.epoch===this.epoch);
     if(pending.length)return this.say(t.chatId,`任务正在等你回答，请点击卡片选项，或发送“回答 ${pending[0].code} 你的答案”。`);
     if(t.status==='running'&&t.turnId){await this.rpc.call('turn/steer',{threadId:t.threadId,expectedTurnId:t.turnId,input:[{type:'text',text}],clientUserMessageId:messageId});return this.say(t.chatId,`${t.id} 已收到补充要求。`);}
@@ -106,6 +110,10 @@ export class Bridge {
     if(t?.source==='desktop'&&!t.bridgeActive)return this.say(chat,`${t.id} 的电脑原轮次需在电脑停止。飞书可以停止由飞书接续的轮次。`);
     if(!t?.turnId||!['starting','running','waiting'].includes(t.status))return this.say(chat,'该任务当前没有执行中的轮次。');
     await this.rpc.call('turn/interrupt',{threadId:t.threadId,turnId:t.turnId});return this.say(chat,`${t.id} 已请求停止。`);
+  }
+  recordDesktopError(t,error,stage){
+    const failure=desktopError(error,stage);t.lastResumeError={...failure,stage,at:Date.now()};t.activity='接续失败：'+failure.message;this.store.save();
+    return {message:`${t.id} 接续失败：${failure.message}`,kind:failure.kind};
   }
   requireTask(id) {const t=this.store.taskById(id.toUpperCase());if(!t||t.archived)throw new Error('找不到这个任务编号，或任务已归档');return t;}
   models(){return (this.rpc.models??[]).filter(m=>!m.hidden);}
@@ -117,7 +125,7 @@ export class Bridge {
   }
   panel(chat){
     const t=this.selected(chat),m=this.currentModel(chat);
-    this.show(chat,'Codex 控制面板',`当前任务：${t?t.id+' · '+t.title:'还未选择'}\n模型：${m?modelLabel(m):'默认'} · 强度：${t?.effort??this.config.effort??m?.defaultReasoningEffort??'默认'}\n\n① 点击“选择任务”，电脑 D 对话和飞书 T 任务都在其中。\n② 选好后直接发消息，回复追加到同一段聊天。也可发送：继续 D001 你的要求。\n③ 发送“问题”重新取回待回答卡片。\n\n${t?.source==='desktop'?'D 对话由飞书接续的轮次可回答、批准和停止；电脑正在跑的原轮次需先在电脑完成或停止。电脑侧如未更新，请重新打开该对话。':'执行中可直接补充要求，按钮或“停止 T001”停止本轮。'}\n发送“命令”查看完整用法。`,[{label:'新建任务',value:{ui:'new',epoch:this.epoch}},{label:'选择任务',value:{ui:'tasks',epoch:this.epoch}},{label:'模型和强度',value:{ui:'model',epoch:this.epoch}},{label:'全部进度',value:{ui:'progress',epoch:this.epoch}},{label:'停止当前轮次',value:{ui:'stop',epoch:this.epoch,taskId:t?.id??null}}]);
+    this.show(chat,'Codex 控制面板',`当前任务：${t?t.id+' · '+t.title:'还未选择'}\n模型：${m?modelLabel(m):'默认'} · 强度：${t?.effort??this.config.effort??m?.defaultReasoningEffort??'默认'}\n\n① 点击“选择任务”，电脑 D 对话和飞书 T 任务都在其中。\n② T 任务选好后直接发消息。D 原对话须由桌面释放后才能接续；不能实时接管仍在桌面打开的聊天。也可发送：继续 D001 你的要求。\n③ 发送“问题”重新取回待回答卡片。\n\n${t?.source==='desktop'?'D 对话由飞书接续的轮次可回答、批准和停止；电脑旧轮次仍由电脑处理。完成或停止不一定释放会话，桌面仍持有时接续会被拒绝。':'执行中可直接补充要求，按钮或“停止 T001”停止本轮。'}\n发送“命令”查看完整用法。`,[{label:'新建任务',value:{ui:'new',epoch:this.epoch}},{label:'选择任务',value:{ui:'tasks',epoch:this.epoch}},{label:'模型和强度',value:{ui:'model',epoch:this.epoch}},{label:'全部进度',value:{ui:'progress',epoch:this.epoch}},{label:'停止当前轮次',value:{ui:'stop',epoch:this.epoch,taskId:t?.id??null}}]);
   }
   form(chat,title,description,fields,label,kind,extra={}){
     const token=randomUUID();this.forms.set(token,{kind,chat,taskId:this.selected(chat)?.id??null,at:Date.now(),...extra});
@@ -127,7 +135,7 @@ export class Bridge {
   newTaskForm(chat){this.requireFeature('newTasks');return this.form(chat,'新建任务','写下任务要求，点击开始。使用你上次选择的模型和强度。输入框最多 1000 字，更长的要求可以直接发消息。',[{tag:'input',name:'prompt',placeholder:{tag:'plain_text',content:'希望 Codex 帮你做什么？'},max_length:1000,required:true,width:'fill'}],'开始任务','new');}
   taskMenu(chat){
     const ts=[...this.store.data.tasks,...(this.store.data.desktopTasks??[])].filter(t=>!t.archived&&t.chatId===chat);
-    if(ts.length)this.form(chat,'选择要回复的任务','T 是飞书任务，D 是电脑原对话。选择后直接发消息。D 在电脑原轮次结束后接续同一对话；不会创建副本。',[selectField('task','选择任务',ts.slice(-100).map(t=>({label:t.id+' · '+(statusNames[t.status]??t.status)+' · '+t.title.slice(0,24),value:t.id})),this.selected(chat)?.id)],'选择并继续聊天','task');
+    if(ts.length)this.form(chat,'选择要回复的任务','T 是飞书任务，D 是电脑原对话。T 选好后可直接聊。D 必须由桌面释放会话后才能接续；仅完成或停止原轮次不保证释放，不支持实时接管。不会创建副本。',[selectField('task','选择任务',ts.slice(-100).map(t=>({label:t.id+' · '+(statusNames[t.status]??t.status)+' · '+t.title.slice(0,24),value:t.id})),this.selected(chat)?.id)],'选择并继续聊天','task');
     else this.say(chat,'当前没有可选任务。可以新建任务；电脑原对话需开启桌面同步后才会出现在这里。');
   }
   frequencyForm(chat){return this.show(chat,'通知方式','定时报告已取消。发送“全部进度”随时查询，自动通知按网页勾选发送。');}
@@ -173,12 +181,15 @@ export class Bridge {
       if(!this.rpc.openDesktop)throw new Error('当前 Codex 连接尚不支持接续电脑原对话');
       // Disk status alone is insufficient. The resume also respects Codex's
       // native cross-process writer lock; never remove or override that lock.
-      const read=await this.rpc.call('thread/read',{threadId:t.threadId,includeTurns:true});
+      let read;
+      try{read=await this.rpc.call('thread/read',{threadId:t.threadId,includeTurns:true});}
+      catch(e){throw new Error(this.recordDesktopError(t,e,'read').message);}
       if(!read.thread||read.thread.id!==t.threadId)throw new Error('原对话无法读取，未发送消息');
       if(read.thread.status?.type==='active'||read.thread.turns?.some(turn=>turn.status==='inProgress'))throw new Error('原对话仍有执行中的轮次，请先在电脑完成或停止，再从飞书继续');
       t.model??=read.thread.model;t.effort??=read.thread.reasoningEffort;
     }
     const previousStatus=t.status;
+    let stage='connect';
     t.status='starting';t.startedAt=Date.now();t.messages={};t.lastComment='';t.plan=[];t.activity='启动任务';this.store.save();
     try {
       if(t.source==='desktop'){
@@ -188,20 +199,23 @@ export class Bridge {
         const r=await this.rpc.call('thread/start',{cwd:t.cwd,sandbox:'workspace-write',approvalPolicy:'on-request',approvalsReviewer:'user',dynamicTools:[ASK_TOOL],developerInstructions:INSTRUCTIONS});
         t.threadId=r.thread.id;this.loaded.add(t.threadId);this.store.save();
       } else if(!this.loaded.has(t.threadId)) {
+        stage='resume';
         const resumed=await this.rpc.call('thread/resume',{threadId:t.threadId,...(t.source==='desktop'?{excludeTurns:true,sandbox:'workspace-write',approvalPolicy:'on-request',approvalsReviewer:'user'}:{})});
         if(t.source==='desktop'&&(resumed.thread?.id!==t.threadId||resumed.thread?.status?.type==='active'))throw new Error('原对话正在使用，未启动新轮次');
         this.loaded.add(t.threadId);
       }
-      const selectedModel=this.models().find(m=>m.model===(t.model??this.config.model));
+      stage='validate';const selectedModel=this.models().find(m=>m.model===(t.model??this.config.model));
       if(t.model&&!selectedModel)throw new Error('所选模型已不可用，请发送“模型”重新选择');
       if(t.effort&&selectedModel&&!selectedModel.supportedReasoningEfforts?.some(e=>e.reasoningEffort===t.effort))throw new Error('所选强度已不可用，请发送“强度”重新选择');
-      const r=await this.rpc.call('turn/start',{threadId:t.threadId,input:[{type:'text',text}],clientUserMessageId:messageId,...(t.model?{model:t.model}:{}),...(t.effort?{effort:t.effort}:{})});
+      stage='start';const r=await this.rpc.call('turn/start',{threadId:t.threadId,input:[{type:'text',text}],clientUserMessageId:messageId,...(t.model?{model:t.model}:{}),...(t.effort?{effort:t.effort}:{})});
       t.turnId=r.turn.id;t.status='running';t.lastNoticeAt=Date.now();this.store.save();
+      if(t.source==='desktop'){delete t.lastResumeError;this.store.save();}
       this.show(t.chatId,'任务已开始',progress(t),[],undefined,'started');
     }catch(e){
       if(t.source==='desktop'){
         t.bridgeActive=false;this.loaded.delete(t.threadId);this.rpc.releaseDesktop?.(t.threadId);t.status=previousStatus;t.activity='接续未完成';
-        this.store.save();throw new Error('电脑原对话接续未完成。原会话可能仍由电脑占用，或该轮次使用的模型、插件暂不支持此连接。请完成或停止电脑原轮次后再试；没有新建副本，也没有开启完全访问权限。');
+        const failure=this.recordDesktopError(t,e,stage);
+        throw new Error(failure.message+'\n'+(stage==='start'?'无法确认本次是否已启动，请先查询原对话状态。':'本次消息没有发送。')+'没有另建副本；不会自动重复提交这条消息。');
       }
       t.status='failed';t.activity=e.message;this.store.save();this.say(t.chatId,`${t.id} 启动失败：${e.message}`,'errors');throw e;
     }
@@ -430,4 +444,4 @@ export function validateForm(schema,value) {
 
 const INSTRUCTIONS=`用户通过飞书远程控制此任务。请用中文汇报。长任务先列出步骤，通过计划更新与简短 commentary 报告真实进展。必须由用户决定的问题请调用 feishu_ask_user，给出具体选项，等待真实回复；不要把沉默当作批准。不在飞书索取密码、密钥或其他秘密。任务完成后给出包含完成内容、验证结果、成果位置和遗留问题的报告。遵守已有沙箱与审批限制。`;
 const EFFORT_NAMES={none:'无',minimal:'极低',low:'低',medium:'中',high:'高',xhigh:'很高',max:'最大',ultra:'Ultra'};
-const HELP=`Codex 飞书助手\n\n回复电脑原对话：发送“任务”选 D 编号，或“切换 D001”，然后直接发消息。也可“继续 D001 你的要求”。追加到同一会话，不创建副本。电脑原轮次需先结束；若电脑仍占用该会话或插件不兼容，会明确提示失败。电脑侧如未更新，请重新打开该对话。\n\n新建 任务要求 — 建立独立 T 任务\n任务 — 选择电脑 D 或飞书 T 任务\n切换 T001 / 切换 D001 — 选择接下来回复谁\n进度 [T001/D001] — 查看进度\n继续 T001/D001 [补充要求] — 接续原会话\n停止 [T001/D001] — 停止由飞书启动的当前轮次\n模型 / 强度 — 点选，下轮生效\n设置 — 查看当前设置\n全部进度 / 状态 — 查看所有项目\n问题 [T编号/D编号/R编号] — 重新获取飞书待回答卡片\n回答 R编号 内容 — 回答问题\n同意 R编号 / 拒绝 R编号 — 批准本次操作\n\n飞书启动的轮次可补充要求、答题及审批。由电脑启动的旧轮次须在电脑回答、批准和停止。D 接续使用工作区沙箱与按需审批，不自动启用完全访问权限。通知和功能在网页勾选；关闭提醒时仍可能等待回答。`;
+const HELP=`Codex 飞书助手\n\n回复电脑原对话：发送“任务”选 D 编号，或“切换 D001”，然后直接发消息。也可“继续 D001 你的要求”。追加到同一会话，不创建副本。原会话必须先由桌面释放；任务完成或停止不一定释放。不支持实时接管仍在桌面打开的聊天，失败时会说明已确认的原因。电脑侧如未更新，请重新打开该对话。\n\n新建 任务要求 — 建立独立 T 任务\n任务 — 选择电脑 D 或飞书 T 任务\n切换 T001 / 切换 D001 — 选择接下来回复谁\n进度 [T001/D001] — 查看进度\n继续 T001/D001 [补充要求] — 接续原会话\n停止 [T001/D001] — 停止由飞书启动的当前轮次\n模型 / 强度 — 点选，下轮生效\n设置 — 查看当前设置\n全部进度 / 状态 — 查看所有项目\n问题 [T编号/D编号/R编号] — 重新获取飞书待回答卡片\n回答 R编号 内容 — 回答问题\n同意 R编号 / 拒绝 R编号 — 批准本次操作\n\n飞书启动的轮次可补充要求、答题及审批。由电脑启动的旧轮次须在电脑回答、批准和停止。D 接续使用工作区沙箱与按需审批，不自动启用完全访问权限。通知和功能在网页勾选；关闭提醒时仍可能等待回答。`;

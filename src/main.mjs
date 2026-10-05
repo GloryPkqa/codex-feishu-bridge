@@ -76,7 +76,7 @@ function publicState() {
     progressEnabled:false,paused:!!config.paused,preferences:config.preferences,pairCode:store.data.ownerId?null:bridge.pairCode,
     conversationReady:!!store.data.ownerChat,
     desktopSync:{enabled:config.desktopSyncEnabled,lastEvent:store.data.desktopSyncLastEvent??null},
-    tasks:[...store.data.tasks.filter(t=>!t.archived),...store.data.desktopTasks.filter(t=>!t.archived)].map(t=>({id:t.id,title:t.title,status:t.status,activity:t.activity,plan:t.plan,startedAt:t.startedAt,report:t.report,controlled:t.source!=='desktop'||!!t.bridgeActive})),
+    tasks:[...store.data.tasks.filter(t=>!t.archived),...store.data.desktopTasks.filter(t=>!t.archived)].map(t=>({id:t.id,title:t.title,status:t.status,activity:t.activity,plan:t.plan,startedAt:t.startedAt,report:t.report,controlled:t.source!=='desktop'||!!t.bridgeActive,lastResumeError:t.lastResumeError})),
     outbox:store.data.outbox.length,logs};
 }
 async function readBody(req) {

@@ -73,9 +73,16 @@ test('persisted in-progress desktop turns are blocked even if hook status says c
 });
 test('native writer-lock rejection restores desktop state without creating a copy',async t=>{
  const {bridge,rpc,dt,store}=fixture(t),call=rpc.call;
- rpc.call=async(method,params)=>{if(method==='thread/resume')throw new Error('writer locked');return call(method,params);};
- await assert.rejects(bridge.message(message('继续 D001')),/接续未完成/);
+ rpc.call=async(method,params)=>{if(method==='thread/resume')throw new Error('thread original-thread already has an active writer');return call(method,params);};
+ await assert.rejects(bridge.message(message('继续 D001')),/桌面仍持有/);
+ assert.equal(dt.lastResumeError.kind,'writer_busy');assert.equal(dt.lastResumeError.stage,'resume');assert.match(dt.lastResumeError.message,/完成或停止不一定释放/);
  assert.equal(dt.status,'completed');assert.equal(dt.bridgeActive,false);assert.equal(store.data.tasks.length,0);assert.equal(rpc.calls.some(c=>c.method==='turn/start'),false);assert.deepEqual(rpc.released,[dt.threadId]);
+});
+test('backend errors remain specific when recognized and never expose raw secret or private path',async t=>{
+ const {bridge,rpc,dt}=fixture(t),call=rpc.call;
+ rpc.call=async(method,params)=>{if(method==='thread/resume')throw new Error('unknown failure: secret-token-123 /private/user');return call(method,params);};
+ await assert.rejects(bridge.message(message('继续 D001')),e=>/恢复原会话/.test(e.message)&&!e.message.includes('secret-token-123')&&!e.message.includes('/private/user')&&!e.message.includes('插件暂不支持'));
+ assert.equal(dt.lastResumeError.kind,'unknown');
 });
 test('desktop worker failure expires only that task requests and preserves primary T state',async t=>{
  const {bridge,store,dt}=fixture(t);dt.bridgeActive=true;dt.status='waiting';

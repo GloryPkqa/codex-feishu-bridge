@@ -21,7 +21,7 @@
 <label><input type="checkbox" data-group="features" data-key="remoteApprovals">手机批准具体操作</label></div>
 <p class="small">关闭手机审批后，新权限请求会被拒绝，任务可能无法继续；已有请求的允许按钮也不会授予权限。停止、查询和回答普通问题仍可用。</p>
 <button type="submit">保存设置</button><span id="preferencesStatus" class="small"></span></form>
-<details><summary>同步电脑其他 Codex 对话（可选）</summary><label><input id="desktopSync" type="checkbox" style="width:auto;margin-right:8px">同步这台电脑的 Codex 桌面对话到飞书</label><p class="small">默认关闭，开关即时保存。开启后会读取当前用户的 Codex 会话新增提问，并把问题发送到已绑定的飞书私聊。安装并信任 Hooks 后，还会同步任务标题、状态及最终回复，可能包含对话中的私人信息。</p><p class="small">上面的通知勾选也适用于桌面对话。D 对话可在电脑原轮次结束后，从飞书按原编号继续同一段聊天。由飞书接续的轮次可回答和批准；电脑启动的旧轮次仍需在电脑处理。不要在接入的任务中填写 Cookie、密码或密钥。</p></details></div>
+<details><summary>同步电脑其他 Codex 对话（可选）</summary><label><input id="desktopSync" type="checkbox" style="width:auto;margin-right:8px">同步这台电脑的 Codex 桌面对话到飞书</label><p class="small">默认关闭，开关即时保存。开启后会读取当前用户的 Codex 会话新增提问，并把问题发送到已绑定的飞书私聊。安装并信任 Hooks 后，还会同步任务标题、状态及最终回复，可能包含对话中的私人信息。</p><p class="small">上面的通知勾选也适用于桌面对话。D 原对话须先由桌面释放，才可从飞书按原编号接续。即使本轮完成，桌面也可能继续占用；当前不支持实时接管仍在桌面打开的聊天。由飞书接续的轮次可回答和批准；电脑启动的旧轮次仍需在电脑处理。不要在接入的任务中填写 Cookie、密码或密钥。</p></details></div>
 <div class="panel"><h2>任务</h2><div id="tasks"><p>还没有任务。连接后可以在飞书直接发要求。</p></div></div><div class="panel"><h2>用量与状态</h2><p>定时报告已关闭。飞书发送“状态”“全部进度”或“有几个项目正在运行”即可查询。</p><p>一次状态查询通常产生一次消息发送调用。任务结果还可能产生文件上传、附件发送等调用，调用次数不等于聊天消息条数。</p><p class="small">企业内所有自建应用共享当月额度，具体以组织套餐和平台规则为准。此页无法读取组织剩余额度，请在飞书管理后台查看。</p><h2>在飞书这样用</h2><div class="commands">新建 帮我整理这个选题的资料并输出报告
 任务
 进度 T001
@@ -29,7 +29,7 @@
 继续 T001 请补充第二部分
 切换 D001
 继续 D001 请继续原任务
-停止 T001</div><p class="small">发送“任务”选择电脑 D 对话或飞书 T 任务，之后直接发消息。D 按原会话 ID 接续，不创建副本；电脑原轮次需先完成或停止。</p></div><details class="panel"><summary>账号连接与高级设置</summary>
+停止 T001</div><p class="small">发送“任务”选择电脑 D 对话或飞书 T 任务，之后直接发消息。D 按原会话 ID 接续，不创建副本；原会话需先由桌面释放；仅完成或停止原轮次不保证释放。</p></div><details class="panel"><summary>账号连接与高级设置</summary>
 <div class="panel"><h2>1. 连接飞书</h2><p id="connectionText">创建一个只供你使用的飞书机器人。</p><button id="register">扫码创建飞书应用</button><button id="reconnect" class="secondary">重新连接</button><button id="login" class="secondary" hidden>登录 Codex</button><div id="qr"></div><div id="regText"></div>
 <details><summary>手动连接已有应用</summary><p class="small">从飞书开放平台复制应用信息。密钥只提交给本机，并由 Windows 加密保存。</p><form id="manual"><label>App ID<input id="appId" autocomplete="off" placeholder="cli_..."></label><label>App Secret<input id="appSecret" type="password" autocomplete="off" placeholder="只在本机填写"></label><button>保存并连接</button></form></details></div>
 <div class="panel"><h2>2. 在飞书启用对话</h2><p>扫码授权后，在飞书搜索「Codex 远程助手」，打开机器人私聊，发送「帮助」。</p><div id="pair" class="hint" hidden><p>如果尚未绑定，请在机器人私聊里发送：</p><div id="pairCode" class="code"></div></div><p id="owner"></p><button id="test" class="secondary">发送连接测试</button>

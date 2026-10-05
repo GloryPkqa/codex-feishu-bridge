@@ -37,7 +37,7 @@ export class CodexRpc extends EventEmitter {
     if(m.method) {this.emit(m.id!==undefined?'request':'notification',m);return;}
     const p=this.pending.get(m.id);if(!p)return;
     this.pending.delete(m.id);clearTimeout(p.timer);
-    m.error?p.reject(new Error(m.error.message)):p.resolve(m.result);
+    if(m.error){const error=new Error(m.error.message);error.code=m.error.code;p.reject(error);}else p.resolve(m.result);
   }
   send(m) {if(!this.process || this.process.stdin.destroyed)throw new Error('Codex 尚未连接');this.process.stdin.write(JSON.stringify(m)+'\n');}
   call(method,params={}) {

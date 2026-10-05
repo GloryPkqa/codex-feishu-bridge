@@ -35,7 +35,7 @@ async function refresh(){try{
   if(!preferencesDirty)renderPreferences(state.preferences);
   $('tasks').replaceChildren();
   const names={idle:'待开始',starting:'正在启动',running:'执行中',waiting:'等你回答',completed:'本轮完成',failed:'执行失败',interrupted:'已停止',disconnected:'连接中断'};
-  for(const t of state.tasks){const div=document.createElement('div');div.className='task';const title=document.createElement('b');title.textContent=t.id+' · '+t.title;div.append(title);const p=document.createElement('p');p.textContent=(names[t.status]??t.status)+(t.activity?' · '+t.activity:'');div.append(p);$('tasks').append(div);}
+  for(const t of state.tasks){const div=document.createElement('div');div.className='task';const title=document.createElement('b');title.textContent=t.id+' · '+t.title;div.append(title);const p=document.createElement('p');p.textContent=(names[t.status]??t.status)+(t.activity?' · '+t.activity:'');div.append(p);if(t.lastResumeError){const error=document.createElement('p');error.className='small';error.textContent='最近接续失败：'+t.lastResumeError.message;div.append(error);}$('tasks').append(div);}
   if(!state.tasks.length){const p=document.createElement('p');p.textContent='还没有任务。连接后可以在飞书直接发要求。';$('tasks').append(p);}
   $('logs').replaceChildren();for(const x of state.logs.slice(-8).reverse()){const div=document.createElement('div');div.className='log';div.textContent=new Date(x.time).toLocaleTimeString('zh-CN',{timeZone:'Asia/Shanghai'})+' · '+x.message;$('logs').append(div);}
   $('outbox').textContent=state.outbox?'还有 '+state.outbox+' 条通知等待发送。':'通知队列已清空。';
